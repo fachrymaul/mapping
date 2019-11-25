@@ -27,24 +27,24 @@ def lidar_file_read(lidar):
     state = 0
     for measure in measures:
         if state == 0:
-            # scanId = int(measure[0])
+            scanId = int(measure[0])
             dataLen = int(measure[1])
-            # angles.append([0] * dataLen)
-            # distances.append([0] * dataLen)
+            angles.append([0] * dataLen)
+            distances.append([0] * dataLen)
             state = 1
             counter = 0
         elif state == 1:
-            if counter < dataLen:
-                # angles[scanId][counter] = float(measure[0])
-                # distances[scanId][counter] = float(measure[1])
-                angles.append(float(measure[0]))
-                distances.append(float(measure[1])/1000) #divide by 1000 to convert from milimeter to meter
+            if counter < dataLen - 1:
+                angles[scanId][counter] = float(measure[0])
+                distances[scanId][counter] = float(measure[1]) / 1000
+                # angles.append(float(measure[0]))
+                # distances.append(float(measure[1])/1000) #divide by 1000 to convert from milimeter to meter
                 counter += 1
             else:
-                # state = 0
-                break
-    angles = np.array(angles)
-    distances = np.array(distances)
+                state = 0
+                # break
+    # angles = np.array(angles)
+    # distances = np.array(distances)
     return angles, distances
 
 def flight_file_read(flight):
@@ -232,30 +232,40 @@ def main():
     Example usage
     """
     print(__file__, "start")
-    xyreso = 0.1  # x-y grid resolution
+    xyreso = 0.01  # x-y grid resolution
     ang, dist = lidar_file_read("LIDARPoints.csv")
-    dronex, dronex = flight_file_read("FlightPath.csv")
-    ox = np.sin(ang * np.pi / 180.) * dist
-    oy = np.cos(ang * np.pi / 180.) * dist
-    pmap, minx, maxx, miny, maxy, xyreso = generate_ray_casting_grid_map(ox, oy, xyreso, True)
-    xyres = np.array(pmap).shape
-    plt.figure(1, figsize=(10,4))
-    plt.subplot(122)
-    plt.imshow(pmap, cmap="PiYG_r") # cmap = "binary" "PiYG_r" "PiYG_r" "bone" "bone_r" "RdYlGn_r"
-    plt.clim(-0.4, 1.4)
-    plt.gca().set_xticks(np.arange(-.5, xyres[1], 1), minor=True)
-    plt.gca().set_yticks(np.arange(-.5, xyres[0], 1), minor=True)
-    plt.grid(True, which="minor", color="w", linewidth=0.6, alpha=0.5)
-    plt.colorbar()
-    plt.subplot(121)
-    plt.plot([oy, np.zeros(np.size(oy))], [ox, np.zeros(np.size(oy))], "ro-")
-    plt.axis("equal")
-    plt.plot(0.0, 0.0, "ob")
-    plt.gca().set_aspect("equal", "box")
-    bottom, top = plt.ylim()  # return the current ylim
-    plt.ylim((top, bottom)) # rescale y axis, to match the grid orientation
-    plt.grid(True)
-    plt.show()
+    dronex, droney = flight_file_read("FlightPath.csv")
+    counter = 0
+    ox = []
+    oy = []
+    for (x, y) in zip(dronex, droney):
+        angle = np.array(ang[counter])
+        distance = np.array(dist[counter])
+        # ox = np.append(ox, (x + (np.sin(angle * np.pi / 180.) * distance)))
+        # oy = np.append(oy, (y + (np.cos(angle * np.pi / 180.) * distance)))
+        ox = x + (np.sin(angle * np.pi / 180.) * distance)
+        oy = y + (np.cos(angle * np.pi / 180.) * distance)
+        counter += 1
+        pmap, minx, maxx, miny, maxy, xyreso = generate_ray_casting_grid_map(ox, oy, xyreso, True)
+        xyres = np.array(pmap).shape
+        plt.figure(1, figsize=(10,4))
+        plt.subplot(122)
+        plt.imshow(pmap, cmap="PiYG_r") # cmap = "binary" "PiYG_r" "PiYG_r" "bone" "bone_r" "RdYlGn_r"
+        plt.clim(-0.4, 1.4)
+        plt.gca().set_xticks(np.arange(-.5, xyres[1], 1), minor=True)
+        plt.gca().set_yticks(np.arange(-.5, xyres[0], 1), minor=True)
+        plt.grid(True, which="minor", color="w", linewidth=0.6, alpha=0.5)
+        plt.colorbar()
+        plt.subplot(121)
+        plt.plot([oy, np.zeros(np.size(oy))], [ox, np.zeros(np.size(oy))], "ro")
+        # plt.plot([oy, np.full(np.size(oy), y)], [ox, np.zeros(np.size(oy), x)], "ro-")
+        plt.axis("equal")
+        plt.plot(0, 0, "ob")
+        plt.gca().set_aspect("equal", "box")
+        bottom, top = plt.ylim()  # return the current ylim
+        plt.ylim((top, bottom)) # rescale y axis, to match the grid orientation
+        plt.grid(True)
+        plt.show()
 
 
 if __name__ == '__main__':
