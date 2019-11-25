@@ -37,14 +37,9 @@ def lidar_file_read(lidar):
             if counter < dataLen - 1:
                 angles[scanId][counter] = float(measure[0])
                 distances[scanId][counter] = float(measure[1]) / 1000
-                # angles.append(float(measure[0]))
-                # distances.append(float(measure[1])/1000) #divide by 1000 to convert from milimeter to meter
                 counter += 1
             else:
                 state = 0
-                # break
-    # angles = np.array(angles)
-    # distances = np.array(distances)
     return angles, distances
 
 def flight_file_read(flight):
@@ -198,8 +193,6 @@ def generate_ray_casting_grid_map(dx, dy, tx, ty, ox, oy, xyreso, breshen=True):
     """
     minx, miny, maxx, maxy, xw, yw = calc_grid_map_config(tx, ty, xyreso)
     pmap = np.ones((xw, yw))/2 # default 0.5 -- [[0.5 for i in range(yw)] for i in range(xw)] 
-    # centix = int(round(-minx / xyreso)) # center x coordinate of the grid map
-    # centiy = int(round(-miny / xyreso)) # center y coordinate of the grid map
     centix = int(math.ceil((dx - minx) / xyreso)) # center x coordinate of the grid map
     centiy = int(math.ceil((dy - miny) / xyreso)) # center y coordinate of the grid map
     print("center :", centix, ",", centiy)
@@ -253,35 +246,32 @@ def main():
         print s
         angle = np.array(ang[counter])
         distance = np.array(dist[counter])
-        ox = x - (np.sin(angle * np.pi / 180.) * distance)
+        ox = x + (np.sin(angle * np.pi / 180.) * distance)
         oy = y + (np.cos(angle * np.pi / 180.) * distance)
         counter += 1
         pmap, minx, maxx, miny, maxy, xyreso = generate_ray_casting_grid_map(x, y, tx, ty, ox, oy, xyreso, True)
-        # pmap, minx, maxx, miny, maxy, xyreso = generate_ray_casting_grid_map(ox, oy, xyreso, True)
         xyres = np.array(pmap).shape
         plt.figure(1, figsize=(15,8))
         plt.subplot(122)
+        plt.cla()
         plt.imshow(pmap, cmap="PiYG_r") # cmap = "binary" "PiYG_r" "PiYG_r" "bone" "bone_r" "RdYlGn_r"
         plt.clim(-0.4, 1.4)
         plt.gca().set_xticks(np.arange(-.5, xyres[1], 1), minor=True)
         plt.gca().set_yticks(np.arange(-.5, xyres[0], 1), minor=True)
         plt.gca().invert_yaxis()
         plt.grid(True, which="minor", color="w", linewidth=0.6, alpha=0.5)
-        plt.colorbar()
         plt.subplot(121)
+        plt.cla()
         plt.plot([oy,np.full(np.size(oy), y)], [ox,np.full(np.size(ox), x)], "ro-")
-        # plt.plot([ox, np.zeros(np.size(oy))], [oy, np.zeros(np.size(oy))], "ro")
-        # plt.plot([oy, np.full(np.size(oy), y * xyreso)], [ox, np.zeros(np.size(oy), x * xyreso)], "ro")
         plt.axis("auto")
-        # plt.plot(dronex, droney, "ob")
         plt.plot(y,x, "ob")
         plt.gca().set_aspect("equal", "box")
         plt.gca().invert_yaxis()
         bottom, top = plt.ylim()  # return the current ylim
         plt.ylim((top, bottom)) # rescale y axis, to match the grid orientation
         plt.grid(True)
-        plt.show()
-
+        plt.pause(0.5)
+    plt.show()
 
 if __name__ == '__main__':
     main()
