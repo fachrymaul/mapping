@@ -192,19 +192,23 @@ def flood_fill(cpoint, pmap):
                 fringe.appendleft((nx, ny + 1))
 
 
-def generate_ray_casting_grid_map(ox, oy, xyreso, breshen=True):
+def generate_ray_casting_grid_map(dx, dy, tx, ty, ox, oy, xyreso, breshen=True):
     """
     The breshen boolean tells if it's computed with bresenham ray casting (True) or with flood fill (False)
     """
-    minx, miny, maxx, maxy, xw, yw = calc_grid_map_config(ox, oy, xyreso)
+    minx, miny, maxx, maxy, xw, yw = calc_grid_map_config(tx, ty, xyreso)
     pmap = np.ones((xw, yw))/2 # default 0.5 -- [[0.5 for i in range(yw)] for i in range(xw)] 
-    centix = int(round(-minx / xyreso)) # center x coordinate of the grid map
-    centiy = int(round(-miny / xyreso)) # center y coordinate of the grid map
+    # centix = int(round(-minx / xyreso)) # center x coordinate of the grid map
+    # centiy = int(round(-miny / xyreso)) # center y coordinate of the grid map
+    centix = int(math.ceil((dx - minx) / xyreso)) # center x coordinate of the grid map
+    centiy = int(math.ceil((dy - miny) / xyreso)) # center y coordinate of the grid map
+    print("center :", centix, ",", centiy)
+    print("min :", minx, ",", miny)
     # occupancy grid computed with bresenham ray casting
     if breshen:
         for (x, y) in zip(ox, oy):
-            ix = int(round((x - minx) / xyreso)) # x coordinate of the the occupied area
-            iy = int(round((y - miny) / xyreso)) # y coordinate of the the occupied area
+            ix = int(math.ceil((x - minx) / xyreso)) # x coordinate of the the occupied area
+            iy = int(math.ceil((y - miny) / xyreso)) # y coordinate of the the occupied area
             laser_beams = bresenham((centix, centiy), (ix, iy)) # line form the lidar to the cooupied point
             for laser_beam in laser_beams:
                 pmap[laser_beam[0]][laser_beam[1]] = 0.0 # free area 0.0
@@ -232,36 +236,47 @@ def main():
     Example usage
     """
     print(__file__, "start")
-    xyreso = 0.01  # x-y grid resolution
+    xyreso = 0.1  # x-y grid resolution
     ang, dist = lidar_file_read("LIDARPoints.csv")
     dronex, droney = flight_file_read("FlightPath.csv")
     counter = 0
-    ox = []
-    oy = []
+    tx = []
+    ty = []
     for (x, y) in zip(dronex, droney):
+        for (t, d) in zip(ang, dist):
+            angle = np.array(t)
+            distance = np.array(d)
+            tx = np.append(tx, (x + (np.sin(angle * np.pi / 180.) * distance)))
+            ty = np.append(ty, (y + (np.cos(angle * np.pi / 180.) * distance)))
+    for (x, y) in zip(dronex, droney):
+        s = "x: " + repr(x) + " y: " + repr(y)
+        print s
         angle = np.array(ang[counter])
         distance = np.array(dist[counter])
-        # ox = np.append(ox, (x + (np.sin(angle * np.pi / 180.) * distance)))
-        # oy = np.append(oy, (y + (np.cos(angle * np.pi / 180.) * distance)))
-        ox = x + (np.sin(angle * np.pi / 180.) * distance)
+        ox = x - (np.sin(angle * np.pi / 180.) * distance)
         oy = y + (np.cos(angle * np.pi / 180.) * distance)
         counter += 1
-        pmap, minx, maxx, miny, maxy, xyreso = generate_ray_casting_grid_map(ox, oy, xyreso, True)
+        pmap, minx, maxx, miny, maxy, xyreso = generate_ray_casting_grid_map(x, y, tx, ty, ox, oy, xyreso, True)
+        # pmap, minx, maxx, miny, maxy, xyreso = generate_ray_casting_grid_map(ox, oy, xyreso, True)
         xyres = np.array(pmap).shape
-        plt.figure(1, figsize=(10,4))
+        plt.figure(1, figsize=(15,8))
         plt.subplot(122)
         plt.imshow(pmap, cmap="PiYG_r") # cmap = "binary" "PiYG_r" "PiYG_r" "bone" "bone_r" "RdYlGn_r"
         plt.clim(-0.4, 1.4)
         plt.gca().set_xticks(np.arange(-.5, xyres[1], 1), minor=True)
         plt.gca().set_yticks(np.arange(-.5, xyres[0], 1), minor=True)
+        plt.gca().invert_yaxis()
         plt.grid(True, which="minor", color="w", linewidth=0.6, alpha=0.5)
         plt.colorbar()
         plt.subplot(121)
-        plt.plot([oy, np.zeros(np.size(oy))], [ox, np.zeros(np.size(oy))], "ro")
-        # plt.plot([oy, np.full(np.size(oy), y)], [ox, np.zeros(np.size(oy), x)], "ro-")
-        plt.axis("equal")
-        plt.plot(0, 0, "ob")
+        plt.plot([oy,np.full(np.size(oy), y)], [ox,np.full(np.size(ox), x)], "ro-")
+        # plt.plot([ox, np.zeros(np.size(oy))], [oy, np.zeros(np.size(oy))], "ro")
+        # plt.plot([oy, np.full(np.size(oy), y * xyreso)], [ox, np.zeros(np.size(oy), x * xyreso)], "ro")
+        plt.axis("auto")
+        # plt.plot(dronex, droney, "ob")
+        plt.plot(y,x, "ob")
         plt.gca().set_aspect("equal", "box")
+        plt.gca().invert_yaxis()
         bottom, top = plt.ylim()  # return the current ylim
         plt.ylim((top, bottom)) # rescale y axis, to match the grid orientation
         plt.grid(True)
