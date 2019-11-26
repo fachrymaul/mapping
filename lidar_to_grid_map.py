@@ -6,6 +6,7 @@ author: Erno Horvath, Csaba Hajdu based on Atsushi Sakai's scripts (@Atsushi_twi
 
 """
 
+import cv2
 import math
 import numpy as np
 import matplotlib.pyplot as plt
@@ -187,69 +188,96 @@ def flood_fill(cpoint, pmap):
                 fringe.appendleft((nx, ny + 1))
 
 
-def generate_ray_casting_grid_map(dx, dy, tx, ty, ox, oy, xyreso, breshen=True):
+def generate_ray_casting_grid_map(dx, dy, tx, ty, ang, dist, xyreso, breshen=True):
     """
     The breshen boolean tells if it's computed with bresenham ray casting (True) or with flood fill (False)
     """
     minx, miny, maxx, maxy, xw, yw = calc_grid_map_config(tx, ty, xyreso)
     pmap = np.ones((xw, yw))/2 # default 0.5 -- [[0.5 for i in range(yw)] for i in range(xw)] 
-    centix = int(math.ceil((dx - minx) / xyreso)) # center x coordinate of the grid map
-    centiy = int(math.ceil((dy - miny) / xyreso)) # center y coordinate of the grid map
-    print("center :", centix, ",", centiy)
-    print("min :", minx, ",", miny)
-    # occupancy grid computed with bresenham ray casting
-    if breshen:
-        for (x, y) in zip(ox, oy):
-            ix = int(math.ceil((x - minx) / xyreso)) # x coordinate of the the occupied area
-            iy = int(math.ceil((y - miny) / xyreso)) # y coordinate of the the occupied area
-            laser_beams = bresenham((centix, centiy), (ix, iy)) # line form the lidar to the cooupied point
-            for laser_beam in laser_beams:
-                pmap[laser_beam[0]][laser_beam[1]] = 0.0 # free area 0.0
-            pmap[ix][iy] = 1.0     # occupied area 1.0
-            pmap[ix+1][iy] = 1.0   # extend the occupied area
-            pmap[ix][iy+1] = 1.0   # extend the occupied area
-            pmap[ix+1][iy+1] = 1.0 # extend the occupied area
-    # occupancy grid computed with with flood fill
-    else:
-        pmap = init_floodfill((centix, centiy), (ox, oy), (xw, yw),  (minx, miny), xyreso)
-        flood_fill((centix, centiy), pmap)
-        pmap = np.array(pmap, dtype=np.float)
-        for (x, y) in zip(ox, oy):
-            ix = int(round((x - minx) / xyreso))
-            iy = int(round((y - miny) / xyreso))
-            pmap[ix][iy] = 1.0     # occupied area 1.0
-            pmap[ix+1][iy] = 1.0   # extend the occupied area
-            pmap[ix][iy+1] = 1.0   # extend the occupied area
-            pmap[ix+1][iy+1] = 1.0 # extend the occupied area
+    counter = 0
+    for (cx, cy) in zip(dx, dy):
+        angle = np.array(ang[counter])
+        distance = np.array(dist[counter])
+        ox = cx + (np.cos(angle * np.pi / 180.) * distance)
+        oy = cy - (np.sin(angle * np.pi / 180.) * distance)
+        counter += 1
+        centix = int(math.ceil((cx - minx) / xyreso)) # center x coordinate of the grid map
+        centiy = int(math.ceil((cy - miny) / xyreso)) # center y coordinate of the grid map
+        print("center :", centix, ",", centiy)
+        print("min :", minx, ",", miny)
+        # occupancy grid computed with bresenham ray casting
+        if breshen:
+            for (x, y) in zip(ox, oy):
+                ix = int(math.ceil((x - minx) / xyreso)) # x coordinate of the the occupied area
+                iy = int(math.ceil((y - miny) / xyreso)) # y coordinate of the the occupied area
+                laser_beams = bresenham((centix, centiy), (ix, iy)) # line form the lidar to the cooupied point
+                for laser_beam in laser_beams:
+                    pmap[laser_beam[0]][laser_beam[1]] = 0.0 # free area 0.0
+                pmap[ix][iy] = 1.0     # occupied area 1.0
+                pmap[ix+1][iy] = 1.0   # extend the occupied area
+                pmap[ix][iy+1] = 1.0   # extend the occupied area
+                pmap[ix+1][iy+1] = 1.0 # extend the occupied area
+        # occupancy grid computed with with flood fill
+        else:
+            pmap = init_floodfill((centix, centiy), (ox, oy), (xw, yw),  (minx, miny), xyreso)
+            flood_fill((centix, centiy), pmap)
+            pmap = np.array(pmap, dtype=np.float)
+            for (x, y) in zip(ox, oy):
+                ix = int(round((x - minx) / xyreso))
+                iy = int(round((y - miny) / xyreso))
+                pmap[ix][iy] = 1.0     # occupied area 1.0
+                pmap[ix+1][iy] = 1.0   # extend the occupied area
+                pmap[ix][iy+1] = 1.0   # extend the occupied area
+                pmap[ix+1][iy+1] = 1.0 # extend the occupied area
     return pmap, minx, maxx, miny, maxy, xyreso
 
+def generate_line(pmap):
+    src = np.uint8(255 - (pmap * 255))
+    dst = cv2.Canny(src, 50, 150, 3)
+    cdst = cv2.cvtColor(dst, cv2.COLOR_GRAY2BGR)
+
+    lines = cv2.HoughLines(dst, 1, np.pi / 180, 150, None, 0, 0)
+    points = []
+    for i in range(0, len(lines)):
+        rho = lines[i][0][0]
+        theta = lines[i][0][1]
+        a = math.cos(theta)
+        b = math.sin(theta)
+        x0 = a * rho
+        y0 = b * rho
+        pt1 = (int(x0 + 1000*(-b)), int(y0 + 1000*(a)))
+        pt2 = (int(x0 - 1000*(-b)), int(y0 - 1000*(a)))
+        cv2.line(cdst, pt1, pt2, (0,0,255), 3, cv2.LINE_AA)
+        # line = [x0 + 1000*(-b), y0 + 1000*a, x0 - 1000 * b, y0 - 1000 * a]
+    cv2.imshow("source", src)
+    cv2.imshow("detection standard hough line", cdst)
+    return lines
 
 def main():
     """
     Example usage
     """
     print(__file__, "start")
-    xyreso = 0.1  # x-y grid resolution
+    xyreso = 0.1 # x-y grid resolution
     ang, dist = lidar_file_read("LIDARPoints.csv")
     dronex, droney = flight_file_read("FlightPath.csv")
-    counter = 0
     tx = []
     ty = []
+    counter = 0
     for (x, y) in zip(dronex, droney):
         for (t, d) in zip(ang, dist):
             angle = np.array(t)
             distance = np.array(d)
             tx = np.append(tx, (x + (np.cos(angle * np.pi / 180.) * distance)))
             ty = np.append(ty, (y - (np.sin(angle * np.pi / 180.) * distance)))
-    for (x, y) in zip(dronex, droney):
-        s = "x: " + repr(x) + " y: " + repr(y)
-        print s
+    pmap, minx, maxx, miny, maxy, xyreso = generate_ray_casting_grid_map(dronex, droney, tx, ty, ang, dist, xyreso, True)
+    lines = generate_line(pmap)
+    for (cx, cy) in zip(dronex, droney):
         angle = np.array(ang[counter])
         distance = np.array(dist[counter])
-        ox = x + (np.cos(angle * np.pi / 180.) * distance)
-        oy = y - (np.sin(angle * np.pi / 180.) * distance)
+        ox = cx + (np.cos(angle * np.pi / 180.) * distance)
+        oy = cy - (np.sin(angle * np.pi / 180.) * distance)
         counter += 1
-        pmap, minx, maxx, miny, maxy, xyreso = generate_ray_casting_grid_map(x, y, tx, ty, ox, oy, xyreso, True)
         xyres = np.array(pmap).shape
         plt.figure(1, figsize=(15,8))
         plt.subplot(122)
@@ -262,9 +290,9 @@ def main():
         plt.grid(True, which="minor", color="w", linewidth=0.6, alpha=0.5)
         plt.subplot(121)
         plt.cla()
-        plt.plot([oy,np.full(np.size(oy), y)], [ox,np.full(np.size(ox), x)], "ro-")
+        plt.plot([oy,np.full(np.size(oy), cy)], [ox,np.full(np.size(ox), cx)], "ro-")
         plt.axis("auto")
-        plt.plot(y,x, "ob")
+        plt.plot(cy,cx, "ob")
         plt.gca().set_aspect("equal", "box")
         plt.gca().invert_yaxis()
         bottom, top = plt.ylim()  # return the current ylim
