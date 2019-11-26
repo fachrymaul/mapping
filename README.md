@@ -4,10 +4,12 @@ Simple simulation to simulate 2d mapping using posisition and lidar data.
 
 This program is developed using python2.7 on Debian Buster. You can install python2.7 using:
 ```sh
+sudo apt update
 sudo apt install python2.7
 ```
 Install the dependencies using pip.
 ```sh
+sudo apt update
 sudo apt install python-pip
 sudo pip install numpy matplotlib scypy
 ```
