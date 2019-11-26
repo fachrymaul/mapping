@@ -239,15 +239,15 @@ def main():
         for (t, d) in zip(ang, dist):
             angle = np.array(t)
             distance = np.array(d)
-            tx = np.append(tx, (x + (np.sin(angle * np.pi / 180.) * distance)))
-            ty = np.append(ty, (y + (np.cos(angle * np.pi / 180.) * distance)))
+            tx = np.append(tx, (x + (np.cos(angle * np.pi / 180.) * distance)))
+            ty = np.append(ty, (y - (np.sin(angle * np.pi / 180.) * distance)))
     for (x, y) in zip(dronex, droney):
         s = "x: " + repr(x) + " y: " + repr(y)
         print s
         angle = np.array(ang[counter])
         distance = np.array(dist[counter])
-        ox = x + (np.sin(angle * np.pi / 180.) * distance)
-        oy = y + (np.cos(angle * np.pi / 180.) * distance)
+        ox = x + (np.cos(angle * np.pi / 180.) * distance)
+        oy = y - (np.sin(angle * np.pi / 180.) * distance)
         counter += 1
         pmap, minx, maxx, miny, maxy, xyreso = generate_ray_casting_grid_map(x, y, tx, ty, ox, oy, xyreso, True)
         xyres = np.array(pmap).shape
