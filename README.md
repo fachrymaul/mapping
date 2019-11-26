@@ -29,5 +29,5 @@ Assumed that the robot is non-holonomic robot that always head north
 
 to run the simulation use
 ```sh
-python lidar_to_grid_map.py
+python2.7 lidar_to_grid_map.py
 ```
