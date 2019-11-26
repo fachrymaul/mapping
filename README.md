@@ -10,8 +10,8 @@ sudo apt install python2.7
 Install the dependencies using pip.
 ```sh
 sudo apt update
-sudo apt install python-pip
-sudo pip install numpy matplotlib scypy
+sudo apt install python-pip python-tk
+sudo pip install numpy matplotlib
 ```
 
 There are 2 files as an input LIDARPoints.csv and FlightPath.csv
