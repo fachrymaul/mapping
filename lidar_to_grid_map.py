@@ -87,7 +87,7 @@ def write_new_flight_path(rx, ry):
     """
     f= open("newFlightPath.csv", "w+")
     i = 0
-    for (x,y) in zip(rx,ry):
+    for (x,y) in zip(np.flipud(rx),np.flipud(ry)):
         scanid = "%d,1\n\r" % i
         data = "%5.5f,%5.5f\n\r" % (float(x), float(y))
         f.write(scanid)
